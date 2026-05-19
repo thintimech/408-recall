@@ -33,6 +33,7 @@ npm run dev
 
 ```bash
 npm run type-check
+npm test
 npm run build
 ```
 
