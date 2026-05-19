@@ -1,17 +1,39 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { downloadBackup } from '@/services/exportService'
-import { clearAllData, overwriteImport, readBackupFile } from '@/services/importService'
+import {
+  clearAllData,
+  getLocalDataStats,
+  overwriteImport,
+  readBackupFile,
+  type LocalDataStats
+} from '@/services/importService'
 
 const router = useRouter()
 const message = ref('')
 const error = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
+const stats = ref<LocalDataStats>({
+  knowledgeNodeCount: 0,
+  cardCount: 0,
+  reviewRecordCount: 0,
+  lastExportAt: null,
+  schemaVersion: 1
+})
+
+async function loadStats() {
+  stats.value = await getLocalDataStats()
+}
+
+onMounted(() => {
+  void loadStats()
+})
 
 async function exportJson() {
   error.value = ''
   await downloadBackup()
+  await loadStats()
   message.value = '备份文件已生成。'
 }
 
@@ -25,6 +47,7 @@ async function importJson(event: Event) {
   try {
     const data = await readBackupFile(file)
     if (!window.confirm('导入会清空并覆盖当前本地数据，确定继续吗？')) return
+    await downloadBackup('408-recall-before-import')
     await overwriteImport(data)
     message.value = '导入完成，页面将刷新。'
     window.setTimeout(() => window.location.reload(), 500)
@@ -36,7 +59,13 @@ async function importJson(event: Event) {
 }
 
 async function clearData() {
-  if (!window.confirm('确定清空所有本地数据吗？此操作不可撤销。')) return
+  if (!window.confirm('清空会删除所有本地数据，且不可撤销。是否继续？')) return
+  const typed = window.prompt('请输入“清空本地数据”以确认。')
+  if (typed !== '清空本地数据') {
+    error.value = '确认文本不匹配，已取消清空。'
+    return
+  }
+
   await clearAllData()
   await router.push('/')
   window.location.reload()
@@ -52,10 +81,32 @@ async function clearData() {
       </div>
     </header>
 
-    <section class="panel form">
+    <section class="panel">
+      <h2>本地数据统计</h2>
+      <div class="grid three">
+        <article class="list-item">
+          <span class="muted">知识点数量</span>
+          <strong style="display: block; font-size: 2rem">{{ stats.knowledgeNodeCount }}</strong>
+        </article>
+        <article class="list-item">
+          <span class="muted">卡片数量</span>
+          <strong style="display: block; font-size: 2rem">{{ stats.cardCount }}</strong>
+        </article>
+        <article class="list-item">
+          <span class="muted">复习记录数量</span>
+          <strong style="display: block; font-size: 2rem">{{ stats.reviewRecordCount }}</strong>
+        </article>
+      </div>
+      <p class="muted">最近一次导出：{{ stats.lastExportAt || '尚未导出' }}</p>
+      <p class="muted">当前数据 schema 版本：{{ stats.schemaVersion }}</p>
+    </section>
+
+    <section class="panel form" style="margin-top: 1rem">
       <div>
         <h2>数据备份</h2>
-        <p class="muted">导出的 JSON 包含知识点、卡片、复习状态和复习记录。</p>
+        <p class="muted">
+          导出的 JSON 包含知识点、卡片、复习状态和复习记录。导入前会自动导出当前数据作为备份。
+        </p>
       </div>
 
       <div class="actions">

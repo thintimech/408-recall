@@ -1,5 +1,14 @@
 import { db } from '@/db'
+import { getMetaValue } from '@/db/repositories/metaRepository'
 import type { ExportDataV1 } from '@/types/export'
+
+export interface LocalDataStats {
+  knowledgeNodeCount: number
+  cardCount: number
+  reviewRecordCount: number
+  lastExportAt: string | null
+  schemaVersion: number
+}
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -86,4 +95,23 @@ export async function clearAllData(): Promise<void> {
       ])
     }
   )
+}
+
+export async function getLocalDataStats(): Promise<LocalDataStats> {
+  const [knowledgeNodeCount, cardCount, reviewRecordCount, lastExportAt, schemaVersion] =
+    await Promise.all([
+      db.knowledgeNodes.count(),
+      db.memoryCards.count(),
+      db.reviewRecords.count(),
+      getMetaValue<string>('last_export_at'),
+      getMetaValue<number>('data_schema_version')
+    ])
+
+  return {
+    knowledgeNodeCount,
+    cardCount,
+    reviewRecordCount,
+    lastExportAt: lastExportAt || null,
+    schemaVersion: schemaVersion || 1
+  }
 }

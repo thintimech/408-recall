@@ -38,6 +38,7 @@ export interface MemoryCard {
   extra?: string
   tags: string[]
   verifiedStatus: VerifiedStatus
+  archived?: boolean
   createdAt: ISODateTimeString
   updatedAt: ISODateTimeString
 }
@@ -74,4 +75,19 @@ export interface AppMeta {
 export interface DueReviewItem {
   card: MemoryCard
   state: ReviewState
+}
+
+export interface CardWithReviewState {
+  card: MemoryCard
+  state?: ReviewState
+}
+
+export interface RecentReviewCard {
+  card: MemoryCard
+  record: ReviewRecord
+}
+
+export interface DueCountByDate {
+  date: ISODateString
+  count: number
 }

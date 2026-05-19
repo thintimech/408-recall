@@ -11,11 +11,25 @@ const router = useRouter()
 const cardStore = useCardStore()
 const knowledgeStore = useKnowledgeStore()
 const initialForm = ref<CardFormModel>()
+const continueForSameKnowledge = ref(false)
+const formKey = ref(0)
 const loading = ref(true)
 const error = ref('')
 
 const cardId = computed(() => String(route.params.id || ''))
 const isEdit = computed(() => Boolean(cardId.value))
+
+function blankFormFrom(form: CardFormModel): CardFormModel {
+  return {
+    knowledgeNodeId: form.knowledgeNodeId,
+    type: form.type,
+    front: '',
+    back: '',
+    extra: '',
+    tagsText: form.tagsText,
+    verifiedStatus: form.verifiedStatus
+  }
+}
 
 onMounted(async () => {
   await knowledgeStore.load()
@@ -35,6 +49,16 @@ onMounted(async () => {
         verifiedStatus: card.verifiedStatus
       }
     }
+  } else if (typeof route.query.knowledgeNodeId === 'string') {
+    initialForm.value = {
+      knowledgeNodeId: route.query.knowledgeNodeId,
+      type: 'CONCEPT',
+      front: '',
+      back: '',
+      extra: '',
+      tagsText: '',
+      verifiedStatus: 'UNVERIFIED'
+    }
   }
 
   loading.value = false
@@ -44,9 +68,18 @@ async function submit(form: CardFormModel) {
   try {
     if (isEdit.value) {
       await cardStore.updateExistingCard(cardId.value, form)
-    } else {
-      await cardStore.createCard(form)
+      await router.push('/cards')
+      return
     }
+
+    await cardStore.createCard(form)
+    if (continueForSameKnowledge.value) {
+      initialForm.value = blankFormFrom(form)
+      formKey.value += 1
+      error.value = ''
+      return
+    }
+
     await router.push('/cards')
   } catch (err) {
     error.value = err instanceof Error ? err.message : '保存失败。'
@@ -66,7 +99,19 @@ async function submit(form: CardFormModel) {
     <p v-if="error" class="panel">{{ error }}</p>
     <p v-if="loading" class="panel">加载中...</p>
     <section v-else class="panel">
+      <label v-if="!isEdit" style="margin-bottom: 1rem">
+        <span>
+          <input
+            v-model="continueForSameKnowledge"
+            type="checkbox"
+            style="width: auto; margin-right: 0.5rem"
+          />
+          保存后继续为当前知识点新建卡片
+        </span>
+      </label>
+
       <CardForm
+        :key="formKey"
         :nodes="knowledgeStore.selectableNodes"
         :initial-form="initialForm"
         :submit-label="isEdit ? '保存卡片' : '创建卡片'"

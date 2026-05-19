@@ -198,6 +198,10 @@ label {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.grid.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .stat {
   min-height: 130px;
 }
@@ -318,11 +322,25 @@ label {
 
   .grid.two,
   .grid.three,
+  .grid.four,
   .filters {
     grid-template-columns: 1fr;
   }
 
   .page-header {
     display: grid;
+  }
+
+  .actions {
+    align-items: stretch;
+  }
+
+  .actions > button,
+  .actions > a {
+    width: 100%;
+  }
+
+  .actions > a > button {
+    width: 100%;
   }
 }

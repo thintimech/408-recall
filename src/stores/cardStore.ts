@@ -2,15 +2,17 @@ import { defineStore } from 'pinia'
 import {
   createCardWithInitialState,
   deleteCardCascade,
+  duplicateCard,
   getCard,
   listCards,
+  setCardArchived,
   type CardFilters,
   updateCard
 } from '@/db/repositories/cardRepository'
 import { getKnowledgeNode } from '@/db/repositories/knowledgeRepository'
 import { createInitialReviewState } from '@/services/reviewScheduler'
 import { nowIso, todayLocalDate } from '@/services/dateService'
-import type { ID, MemoryCard } from '@/types/domain'
+import type { CardWithReviewState, ID, MemoryCard } from '@/types/domain'
 import type { CardFormModel } from '@/types/forms'
 import { createId } from '@/utils/id'
 
@@ -23,17 +25,20 @@ function parseTags(tagsText: string): string[] {
 
 export const useCardStore = defineStore('cards', {
   state: () => ({
-    cards: [] as MemoryCard[],
+    cards: [] as CardWithReviewState[],
+    lastFilters: {} as CardFilters,
     loading: false,
     error: ''
   }),
   actions: {
-    async load(filters: CardFilters = {}) {
+    async load(filters?: CardFilters) {
       this.loading = true
       this.error = ''
+      const activeFilters = filters ?? this.lastFilters
+      this.lastFilters = activeFilters
 
       try {
-        this.cards = await listCards(filters)
+        this.cards = await listCards(activeFilters)
       } catch (error) {
         this.error = error instanceof Error ? error.message : '卡片加载失败。'
       } finally {
@@ -65,6 +70,7 @@ export const useCardStore = defineStore('cards', {
         extra: form.extra.trim(),
         tags: parseTags(form.tagsText),
         verifiedStatus: form.verifiedStatus,
+        archived: false,
         createdAt: now,
         updatedAt: now
       }
@@ -98,6 +104,14 @@ export const useCardStore = defineStore('cards', {
         verifiedStatus: form.verifiedStatus,
         updatedAt: nowIso()
       })
+      await this.load()
+    },
+    async duplicateExistingCard(id: ID) {
+      await duplicateCard(id)
+      await this.load()
+    },
+    async archiveCard(id: ID, archived: boolean) {
+      await setCardArchived(id, archived)
       await this.load()
     },
     async removeCard(id: ID) {

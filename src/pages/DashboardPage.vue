@@ -18,13 +18,15 @@ onMounted(() => {
         <p class="page-subtitle">打开后先处理到期卡片，再新增材料。</p>
       </div>
       <RouterLink to="/review">
-        <button type="button">开始今日复习</button>
+        <button type="button" style="font-size: 1.05rem; padding: 0.95rem 1.25rem">
+          开始今日复习
+        </button>
       </RouterLink>
     </header>
 
     <div class="grid three">
       <article class="panel stat">
-        <span class="muted">待复习</span>
+        <span class="muted">今日待复习</span>
         <strong>{{ appStore.dueCount }}</strong>
       </article>
       <article class="panel stat">
@@ -32,12 +34,8 @@ onMounted(() => {
         <strong>{{ appStore.completedToday }}</strong>
       </article>
       <article class="panel stat">
-        <span class="muted">总卡片数</span>
-        <strong>
-          {{
-            Object.values(appStore.subjectCardCounts).reduce((sum, count) => sum + count, 0)
-          }}
-        </strong>
+        <span class="muted">今日完成率</span>
+        <strong>{{ appStore.completionRate }}%</strong>
       </article>
     </div>
 
@@ -59,6 +57,23 @@ onMounted(() => {
       </section>
 
       <section class="panel">
+        <h2>未来 7 天待复习</h2>
+        <ul class="list">
+          <li
+            v-for="item in appStore.dueCountsNextSevenDays"
+            :key="item.date"
+            class="list-item actions"
+            style="justify-content: space-between"
+          >
+            <span>{{ item.date }}</span>
+            <span class="badge">{{ item.count }} 张</span>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="grid two" style="margin-top: 1rem">
+      <section class="panel">
         <h2>最近新增卡片</h2>
         <div v-if="appStore.recentCards.length === 0" class="empty">还没有卡片。</div>
         <ul v-else class="list">
@@ -67,6 +82,21 @@ onMounted(() => {
               <strong>{{ card.front }}</strong>
             </RouterLink>
             <p class="muted">{{ card.createdAt }}</p>
+          </li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>最近遗忘卡片</h2>
+        <div v-if="appStore.recentForgottenCards.length === 0" class="empty">
+          暂无遗忘记录。
+        </div>
+        <ul v-else class="list">
+          <li v-for="item in appStore.recentForgottenCards" :key="item.record.id" class="list-item">
+            <RouterLink :to="`/cards/${item.card.id}/edit`">
+              <strong>{{ item.card.front }}</strong>
+            </RouterLink>
+            <p class="muted">遗忘时间：{{ item.record.reviewedAt }}</p>
           </li>
         </ul>
       </section>
