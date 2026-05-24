@@ -40,10 +40,46 @@ export const router = createRouter({
       meta: { title: '今日复习' }
     },
     {
+      path: '/review/cram',
+      name: 'CramReview',
+      component: () => import('@/pages/CramReviewPage.vue'),
+      meta: { title: '突击复习' }
+    },
+    {
       path: '/records',
       name: 'ReviewRecords',
       component: () => import('@/pages/ReviewRecordsPage.vue'),
       meta: { title: '复习记录' }
+    },
+    {
+      path: '/stats',
+      name: 'Stats',
+      component: () => import('@/pages/StatsPage.vue'),
+      meta: { title: '学习统计' }
+    },
+    {
+      path: '/import',
+      name: 'Import',
+      component: () => import('@/pages/ImportPage.vue'),
+      meta: { title: '批量导入' }
+    },
+    {
+      path: '/mistakes',
+      name: 'Mistakes',
+      component: () => import('@/pages/MistakesPage.vue'),
+      meta: { title: '错点记录' }
+    },
+    {
+      path: '/ai',
+      name: 'AiCard',
+      component: () => import('@/pages/AiCardPage.vue'),
+      meta: { title: 'AI 制卡' }
+    },
+    {
+      path: '/export',
+      name: 'Export',
+      component: () => import('@/pages/ExportPage.vue'),
+      meta: { title: '导出 / 导入' }
     },
     {
       path: '/settings',

@@ -59,12 +59,12 @@ export const useReviewStore = defineStore('reviews', {
         .map((entry) => entry.item.card)
   },
   actions: {
-    async loadDue() {
+    async loadDue(subjectId?: string) {
       this.loading = true
       this.error = ''
 
       try {
-        this.dueItems = await listDueReviewItems()
+        this.dueItems = await listDueReviewItems(undefined, subjectId)
         this.sessionResults = emptyResultCounts()
         this.sessionReviewed = []
         this.initialQueueCount = this.dueItems.length

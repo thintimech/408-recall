@@ -3,7 +3,11 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import { router } from './router'
 import { initializeSeedData } from './db/repositories/knowledgeRepository'
+import { applyTheme } from './services/themeService'
+import 'katex/dist/katex.min.css'
 import './styles.css'
+
+applyTheme()
 
 async function bootstrap() {
   try {

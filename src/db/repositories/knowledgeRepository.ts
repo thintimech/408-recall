@@ -1,9 +1,13 @@
 import { db } from '@/db'
 import { seedKnowledgeNodes } from '@/data/seedKnowledgeNodes'
+import { seedCards } from '@/data/seedCards'
 import type { ID, KnowledgeNode } from '@/types/domain'
-import { nowIso } from '@/services/dateService'
+import { nowIso, todayLocalDate } from '@/services/dateService'
+import { createInitialReviewState } from '@/services/reviewScheduler'
 
-const seedMetaKey = 'seed_initialized_v1'
+const seedMetaKey = 'seed_initialized_v2'
+const seedMathMetaKey = 'seed_math_v2'
+const seedCardsMetaKey = 'seed_cards_v4'
 
 function sortNodes(nodes: KnowledgeNode[]): KnowledgeNode[] {
   return [...nodes].sort((a, b) => {
@@ -18,18 +22,49 @@ function sortNodes(nodes: KnowledgeNode[]): KnowledgeNode[] {
 export async function initializeSeedData(): Promise<void> {
   await db.transaction('rw', db.knowledgeNodes, db.appMeta, async () => {
     const initialized = await db.appMeta.get(seedMetaKey)
-    if (initialized?.value === true) return
-
-    const existingNodeCount = await db.knowledgeNodes.count()
-    if (existingNodeCount === 0) {
-      await db.knowledgeNodes.bulkPut(seedKnowledgeNodes)
+    if (initialized?.value !== true) {
+      let inserted = 0
+      for (const node of seedKnowledgeNodes) {
+        const existing = await db.knowledgeNodes.get(node.id)
+        if (!existing) {
+          await db.knowledgeNodes.put(node)
+          inserted++
+        }
+      }
+      console.log(`[408 Recall] Seeded ${inserted} knowledge nodes (total available: ${seedKnowledgeNodes.length})`)
+      await db.appMeta.put({ key: seedMetaKey, value: true, updatedAt: nowIso() })
     }
 
-    await db.appMeta.put({
-      key: seedMetaKey,
-      value: true,
-      updatedAt: nowIso()
-    })
+    const mathInitialized = await db.appMeta.get(seedMathMetaKey)
+    if (mathInitialized?.value !== true) {
+      const mathNodes = seedKnowledgeNodes.filter(
+        (n) => n.subjectId === 'subject-calculus' || n.subjectId === 'subject-linalg' || n.subjectId === 'subject-prob'
+      )
+      for (const node of mathNodes) {
+        const existing = await db.knowledgeNodes.get(node.id)
+        if (!existing) await db.knowledgeNodes.put(node)
+      }
+      await db.appMeta.put({ key: seedMathMetaKey, value: true, updatedAt: nowIso() })
+    }
+  })
+
+  await db.transaction('rw', db.memoryCards, db.reviewStates, db.appMeta, async () => {
+    const cardsInitialized = await db.appMeta.get(seedCardsMetaKey)
+    if (cardsInitialized?.value !== true) {
+      const today = todayLocalDate()
+      const now = nowIso()
+      let inserted = 0
+      for (const card of seedCards) {
+        const existing = await db.memoryCards.get(card.id)
+        if (!existing) {
+          await db.memoryCards.put(card)
+          await db.reviewStates.put(createInitialReviewState(card.id, today, now))
+          inserted++
+        }
+      }
+      console.log(`[408 Recall] Seeded ${inserted} cards (total available: ${seedCards.length})`)
+      await db.appMeta.put({ key: seedCardsMetaKey, value: true, updatedAt: nowIso() })
+    }
   })
 }
 

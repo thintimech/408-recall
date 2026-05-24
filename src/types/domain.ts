@@ -11,6 +11,8 @@ export type CardType =
   | 'FORMULA'
   | 'MISTAKE'
   | 'BIG_QUESTION'
+  | 'METHOD'
+  | 'THEOREM'
 
 export type VerifiedStatus = 'UNVERIFIED' | 'VERIFIED' | 'DOUBTFUL'
 
@@ -90,4 +92,15 @@ export interface RecentReviewCard {
 export interface DueCountByDate {
   date: ISODateString
   count: number
+}
+
+export interface MistakeNote {
+  id: ID
+  knowledgeNodeId: ID
+  source: string
+  summary: string
+  reason?: string
+  relatedCardIds: ID[]
+  createdAt: ISODateTimeString
+  updatedAt: ISODateTimeString
 }

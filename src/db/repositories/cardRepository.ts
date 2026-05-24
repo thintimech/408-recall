@@ -69,7 +69,36 @@ function sortCardItems(
 }
 
 export async function listCards(filters: CardFilters = {}): Promise<CardWithReviewState[]> {
-  const cards = await db.memoryCards.toArray()
+  let collection = db.memoryCards.toCollection()
+
+  if (filters.subjectId) {
+    collection = db.memoryCards.where('subjectId').equals(filters.subjectId)
+  } else if (filters.knowledgeNodeId) {
+    collection = db.memoryCards.where('knowledgeNodeId').equals(filters.knowledgeNodeId)
+  } else if (filters.type) {
+    collection = db.memoryCards.where('type').equals(filters.type)
+  }
+
+  let cards = await collection.toArray()
+
+  if (filters.subjectId && filters.knowledgeNodeId) {
+    cards = cards.filter((c) => c.knowledgeNodeId === filters.knowledgeNodeId)
+  }
+  if (filters.subjectId && filters.type) {
+    cards = cards.filter((c) => c.type === filters.type)
+  }
+  if (filters.knowledgeNodeId && filters.type) {
+    cards = cards.filter((c) => c.type === filters.type)
+  }
+
+  cards = cards
+    .filter((card) => matchesQuery(card, filters.query))
+    .filter((card) => {
+      if (!filters.archivedStatus || filters.archivedStatus === 'ACTIVE') return !isArchived(card)
+      if (filters.archivedStatus === 'ARCHIVED') return isArchived(card)
+      return true
+    })
+
   const states = await db.reviewStates.bulkGet(cards.map((card) => card.id))
   const today = todayLocalDate()
   const items = cards.map<CardWithReviewState>((card, index) => ({
@@ -78,24 +107,7 @@ export async function listCards(filters: CardFilters = {}): Promise<CardWithRevi
   }))
 
   return sortCardItems(
-    items
-      .filter((item) => !filters.subjectId || item.card.subjectId === filters.subjectId)
-      .filter(
-        (item) =>
-          !filters.knowledgeNodeId || item.card.knowledgeNodeId === filters.knowledgeNodeId
-      )
-      .filter((item) => !filters.type || item.card.type === filters.type)
-      .filter((item) => matchesQuery(item.card, filters.query))
-      .filter((item) => {
-        if (!filters.archivedStatus || filters.archivedStatus === 'ACTIVE') {
-          return !isArchived(item.card)
-        }
-        if (filters.archivedStatus === 'ARCHIVED') {
-          return isArchived(item.card)
-        }
-        return true
-      })
-      .filter((item) => matchesDueStatus(item, filters.dueStatus, today)),
+    items.filter((item) => matchesDueStatus(item, filters.dueStatus, today)),
     filters.sortBy
   )
 }
@@ -158,10 +170,21 @@ export async function deleteCardCascade(cardId: ID): Promise<void> {
     db.memoryCards,
     db.reviewStates,
     db.reviewRecords,
+    db.mistakeNotes,
     async () => {
       await db.memoryCards.delete(cardId)
       await db.reviewStates.delete(cardId)
       await db.reviewRecords.where('cardId').equals(cardId).delete()
+
+      const notes = await db.mistakeNotes
+        .filter((n) => n.relatedCardIds.includes(cardId))
+        .toArray()
+      for (const note of notes) {
+        await db.mistakeNotes.put({
+          ...note,
+          relatedCardIds: note.relatedCardIds.filter((id) => id !== cardId)
+        })
+      }
     }
   )
 }

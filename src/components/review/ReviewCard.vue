@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DueReviewItem } from '@/types/domain'
+import MarkdownContent from '@/components/common/MarkdownContent.vue'
 
 defineProps<{
   item: DueReviewItem
@@ -12,19 +13,56 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="panel review-card">
-    <span class="badge">{{ item.card.type }}</span>
-    <div class="review-front">{{ item.card.front }}</div>
+  <section class="panel review-card" @click="!answerVisible && emit('reveal')">
+    <span class="badge" style="justify-self: start">{{ item.card.type }}</span>
 
-    <button v-if="!answerVisible" type="button" @click="emit('reveal')">显示答案</button>
+    <div class="review-front">
+      <MarkdownContent :content="item.card.front" />
+    </div>
 
-    <div v-else class="review-back">
-      <strong>答案</strong>
-      <p>{{ item.card.back }}</p>
-      <template v-if="item.card.extra">
-        <strong>补充</strong>
-        <p>{{ item.card.extra }}</p>
-      </template>
+    <p v-if="!answerVisible" class="reveal-hint">点击或按空格显示答案</p>
+
+    <div v-else class="review-answer">
+      <div class="review-back">
+        <MarkdownContent :content="item.card.back" />
+      </div>
+      <div v-if="item.card.extra" class="review-extra">
+        <MarkdownContent :content="item.card.extra" />
+      </div>
     </div>
   </section>
 </template>
+
+<style scoped>
+.review-card {
+  cursor: pointer;
+}
+
+.reveal-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--on-surface-dim);
+  transition: color var(--transition-fast);
+}
+
+.review-card:hover .reveal-hint {
+  color: var(--on-surface-variant);
+}
+
+.review-answer {
+  border-top: 1px solid var(--outline);
+  padding-top: 1.25rem;
+  animation: fade-in 0.25s ease;
+}
+
+.review-extra {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--outline);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>

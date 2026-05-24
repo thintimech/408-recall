@@ -4,6 +4,7 @@ import type {
   ID,
   KnowledgeNode,
   MemoryCard,
+  MistakeNote,
   ReviewRecord,
   ReviewState
 } from '@/types/domain'
@@ -13,6 +14,7 @@ export class RecallDatabase extends Dexie {
   memoryCards!: Table<MemoryCard, ID>
   reviewStates!: Table<ReviewState, ID>
   reviewRecords!: Table<ReviewRecord, ID>
+  mistakeNotes!: Table<MistakeNote, ID>
   appMeta!: Table<AppMeta, string>
 
   constructor() {
@@ -27,10 +29,15 @@ export class RecallDatabase extends Dexie {
       app_meta: 'key, updatedAt'
     })
 
+    this.version(2).stores({
+      mistake_notes: 'id, knowledgeNodeId, createdAt'
+    })
+
     this.knowledgeNodes = this.table('knowledge_nodes')
     this.memoryCards = this.table('memory_cards')
     this.reviewStates = this.table('review_states')
     this.reviewRecords = this.table('review_records')
+    this.mistakeNotes = this.table('mistake_notes')
     this.appMeta = this.table('app_meta')
   }
 }

@@ -114,6 +114,7 @@ async function submit(form: CardFormModel) {
         :key="formKey"
         :nodes="knowledgeStore.selectableNodes"
         :initial-form="initialForm"
+        :exclude-id="isEdit ? cardId : undefined"
         :submit-label="isEdit ? '保存卡片' : '创建卡片'"
         @submit="submit"
         @cancel="router.push('/cards')"

@@ -8,8 +8,17 @@ import {
   listRecentForgottenCards,
   listRecentReviewRecords
 } from '@/db/repositories/reviewRepository'
-import type { DueCountByDate, MemoryCard, RecentReviewCard, ReviewRecord } from '@/types/domain'
+import { listMistakeNotes } from '@/db/repositories/mistakeRepository'
+import type { DueCountByDate, MemoryCard, MistakeNote, RecentReviewCard, ReviewRecord } from '@/types/domain'
 import { todayLocalDate } from '@/services/dateService'
+import {
+  daysUntilExam,
+  getStreakData,
+  getStudyGoals,
+  recordStudyDay,
+  type StreakData,
+  type StudyGoals
+} from '@/services/studyGoalsService'
 
 export const useAppStore = defineStore('app', {
   state: () => ({
@@ -24,7 +33,11 @@ export const useAppStore = defineStore('app', {
     dueCountsNextSevenDays: [] as DueCountByDate[],
     recentCards: [] as MemoryCard[],
     recentRecords: [] as ReviewRecord[],
-    recentForgottenCards: [] as RecentReviewCard[]
+    recentForgottenCards: [] as RecentReviewCard[],
+    recentMistakeNotes: [] as MistakeNote[],
+    studyGoals: { examDate: null, dailyReviewGoal: 30, dailyNewCardGoal: 5, userName: '' } as StudyGoals,
+    streak: { currentStreak: 0, lastStudyDate: null } as StreakData,
+    daysToExam: null as number | null
   }),
   actions: {
     async initialize() {
@@ -34,6 +47,9 @@ export const useAppStore = defineStore('app', {
 
       try {
         await initializeSeedData()
+        if (navigator.storage?.persist) {
+          await navigator.storage.persist()
+        }
         this.initialized = true
         await this.refreshDashboard()
       } catch (error) {
@@ -52,7 +68,10 @@ export const useAppStore = defineStore('app', {
         recentCards,
         recentRecords,
         recentForgottenCards,
-        nodes
+        mistakeNotes,
+        nodes,
+        goals,
+        streak
       ] = await Promise.all([
         listDueReviewItems(today),
         countReviewedOn(today),
@@ -61,7 +80,10 @@ export const useAppStore = defineStore('app', {
         listRecentCards(),
         listRecentReviewRecords(),
         listRecentForgottenCards(),
-        listKnowledgeNodes()
+        listMistakeNotes(),
+        listKnowledgeNodes(),
+        getStudyGoals(),
+        getStreakData()
       ])
 
       this.dueCount = dueItems.length
@@ -75,9 +97,16 @@ export const useAppStore = defineStore('app', {
       this.recentCards = recentCards
       this.recentRecords = recentRecords
       this.recentForgottenCards = recentForgottenCards
+      this.recentMistakeNotes = mistakeNotes.slice(0, 5)
       this.subjectTitles = Object.fromEntries(
         nodes.filter((node) => node.level === 0).map((node) => [node.id, node.title])
       )
+      this.studyGoals = goals
+      this.streak = streak
+      this.daysToExam = daysUntilExam(goals.examDate)
+    },
+    async markStudyDay() {
+      this.streak = await recordStudyDay()
     }
   }
 })

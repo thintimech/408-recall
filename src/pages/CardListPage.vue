@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import CardList from '@/components/cards/CardList.vue'
 import { useCardStore } from '@/stores/cardStore'
 import { useKnowledgeStore } from '@/stores/knowledgeStore'
-import type { CardType, CardWithReviewState } from '@/types/domain'
+import { deleteCardCascade, updateCard } from '@/db/repositories/cardRepository'
+import { db } from '@/db'
+import type { CardType, CardWithReviewState, ID, VerifiedStatus } from '@/types/domain'
+import { nowIso } from '@/services/dateService'
 
 const router = useRouter()
+const route = useRoute()
 const cardStore = useCardStore()
 const knowledgeStore = useKnowledgeStore()
+
+const batchMode = ref(false)
+const selectedIds = ref<Set<ID>>(new Set())
+const batchMessage = ref('')
 
 const cardTypes: Array<{ value: CardType; label: string }> = [
   { value: 'CONCEPT', label: '概念卡' },
@@ -17,7 +25,9 @@ const cardTypes: Array<{ value: CardType; label: string }> = [
   { value: 'PROCESS', label: '流程卡' },
   { value: 'FORMULA', label: '公式卡' },
   { value: 'MISTAKE', label: '易错卡' },
-  { value: 'BIG_QUESTION', label: '大题模板卡' }
+  { value: 'BIG_QUESTION', label: '大题模板卡' },
+  { value: 'METHOD', label: '题型套路卡' },
+  { value: 'THEOREM', label: '定理条件卡' }
 ]
 
 const filters = reactive({
@@ -48,9 +58,18 @@ async function loadCards() {
   })
 }
 
-watch(filters, () => void loadCards(), { deep: true })
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(filters, () => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => void loadCards(), 300)
+}, { deep: true })
 
 onMounted(async () => {
+  const q = route.query.q
+  if (q && typeof q === 'string') {
+    filters.query = q
+  }
   await knowledgeStore.load()
   await loadCards()
 })
@@ -71,11 +90,88 @@ async function remove(item: CardWithReviewState) {
 async function duplicate(item: CardWithReviewState) {
   await cardStore.duplicateExistingCard(item.card.id)
   await loadCards()
+  batchMessage.value = '卡片已复制。'
 }
 
 async function archive(item: CardWithReviewState) {
   await cardStore.archiveCard(item.card.id, item.card.archived !== true)
   await loadCards()
+  batchMessage.value = item.card.archived ? '已恢复学习。' : '已标记为掌握。'
+}
+
+function toggleBatch() {
+  batchMode.value = !batchMode.value
+  selectedIds.value = new Set()
+  batchMessage.value = ''
+}
+
+function toggleSelect(id: ID) {
+  const s = new Set(selectedIds.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  selectedIds.value = s
+}
+
+function selectAll() {
+  selectedIds.value = new Set(cardStore.cards.map((c) => c.card.id))
+}
+
+function deselectAll() {
+  selectedIds.value = new Set()
+}
+
+async function batchDelete() {
+  const count = selectedIds.value.size
+  if (!count) return
+  if (!window.confirm(`确定批量删除 ${count} 张卡片？此操作不可撤销。`)) return
+
+  await db.transaction('rw', db.memoryCards, db.reviewStates, db.reviewRecords, async () => {
+    for (const id of selectedIds.value) {
+      await deleteCardCascade(id)
+    }
+  })
+  selectedIds.value = new Set()
+  await loadCards()
+  batchMessage.value = `已删除 ${count} 张卡片。`
+}
+
+async function batchSetVerified(status: VerifiedStatus) {
+  const count = selectedIds.value.size
+  if (!count) return
+
+  await db.transaction('rw', db.memoryCards, async () => {
+    for (const id of selectedIds.value) {
+      const item = cardStore.cards.find((c) => c.card.id === id)
+      if (item) {
+        await updateCard({ ...item.card, verifiedStatus: status, updatedAt: nowIso() })
+      }
+    }
+  })
+  await loadCards()
+  batchMessage.value = `已将 ${count} 张卡片标记为${status === 'VERIFIED' ? '已校对' : status === 'DOUBTFUL' ? '存疑' : '未校对'}。`
+}
+
+async function batchMoveNode(nodeId: ID) {
+  const count = selectedIds.value.size
+  if (!count) return
+  const node = knowledgeStore.nodes.find((n) => n.id === nodeId)
+  if (!node) return
+
+  await db.transaction('rw', db.memoryCards, async () => {
+    for (const id of selectedIds.value) {
+      const item = cardStore.cards.find((c) => c.card.id === id)
+      if (item) {
+        await updateCard({
+          ...item.card,
+          knowledgeNodeId: nodeId,
+          subjectId: node.subjectId,
+          updatedAt: nowIso()
+        })
+      }
+    }
+  })
+  await loadCards()
+  batchMessage.value = `已将 ${count} 张卡片移动到「${node.title}」。`
 }
 </script>
 
@@ -83,13 +179,39 @@ async function archive(item: CardWithReviewState) {
   <section class="page">
     <header class="page-header">
       <div>
-        <h1 class="page-title">卡片列表</h1>
+        <p class="page-eyebrow">Card Library</p>
+        <h1 class="page-title">卡片管理</h1>
         <p class="page-subtitle">围绕知识点维护可主动回忆的材料。</p>
       </div>
-      <RouterLink to="/cards/new">
-        <button type="button">新建卡片</button>
-      </RouterLink>
+      <div class="actions">
+        <button class="secondary" type="button" @click="toggleBatch">
+          {{ batchMode ? '退出批量' : '批量操作' }}
+        </button>
+        <RouterLink to="/cards/new">
+          <button type="button">新建卡片</button>
+        </RouterLink>
+      </div>
     </header>
+
+    <p v-if="batchMessage" class="panel" style="margin-bottom: 1rem; color: var(--accent)">
+      {{ batchMessage }}
+    </p>
+
+    <section v-if="batchMode && cardStore.cards.length" class="panel" style="margin-bottom: 1rem">
+      <div class="actions" style="flex-wrap: wrap">
+        <button class="toolbar-btn" type="button" @click="selectAll">全选</button>
+        <button class="toolbar-btn" type="button" @click="deselectAll">取消全选</button>
+        <span class="muted">已选 {{ selectedIds.size }} 张</span>
+        <button class="toolbar-btn" type="button" :disabled="!selectedIds.size" @click="batchSetVerified('VERIFIED')">标记已校对</button>
+        <button class="toolbar-btn" type="button" :disabled="!selectedIds.size" @click="batchSetVerified('UNVERIFIED')">标记未校对</button>
+        <button class="toolbar-btn" type="button" :disabled="!selectedIds.size" @click="batchSetVerified('DOUBTFUL')">标记存疑</button>
+        <select :disabled="!selectedIds.size" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.82rem; border-radius: 8px" @change="(e) => { batchMoveNode((e.target as HTMLSelectElement).value); (e.target as HTMLSelectElement).value = '' }">
+          <option value="">移动到…</option>
+          <option v-for="node in filteredNodes" :key="node.id" :value="node.id">{{ node.title }}</option>
+        </select>
+        <button class="toolbar-btn" type="button" style="color: var(--danger)" :disabled="!selectedIds.size" @click="batchDelete">批量删除</button>
+      </div>
+    </section>
 
     <section class="panel" style="margin-bottom: 1rem">
       <div class="filters">
@@ -134,10 +256,10 @@ async function archive(item: CardWithReviewState) {
           </select>
         </label>
         <label>
-          归档状态
+          掌握状态
           <select v-model="filters.archivedStatus">
-            <option value="ACTIVE">未归档</option>
-            <option value="ARCHIVED">已归档</option>
+            <option value="ACTIVE">学习中</option>
+            <option value="ARCHIVED">已掌握</option>
             <option value="ALL">全部</option>
           </select>
         </label>
@@ -155,10 +277,13 @@ async function archive(item: CardWithReviewState) {
     <CardList
       :cards="cardStore.cards"
       :nodes="knowledgeStore.nodes"
+      :batch-mode="batchMode"
+      :selected-ids="selectedIds"
       @edit="(item) => router.push(`/cards/${item.card.id}/edit`)"
       @duplicate="duplicate"
       @archive="archive"
       @delete="remove"
+      @toggle-select="toggleSelect"
     />
   </section>
 </template>

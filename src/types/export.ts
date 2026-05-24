@@ -2,6 +2,7 @@ import type {
   AppMeta,
   KnowledgeNode,
   MemoryCard,
+  MistakeNote,
   ReviewRecord,
   ReviewState
 } from './domain'
@@ -18,5 +19,6 @@ export interface ExportDataV1 {
     reviewStates: ReviewState[]
     reviewRecords: ReviewRecord[]
     appMeta: AppMeta[]
+    mistakeNotes?: MistakeNote[]
   }
 }

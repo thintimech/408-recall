@@ -27,14 +27,16 @@ export async function getReviewState(cardId: ID): Promise<ReviewState | undefine
   return db.reviewStates.get(cardId)
 }
 
-export async function listDueReviewItems(today = todayLocalDate()): Promise<DueReviewItem[]> {
+export async function listDueReviewItems(today = todayLocalDate(), subjectId?: string): Promise<DueReviewItem[]> {
   const states = await db.reviewStates.where('nextReviewDate').belowOrEqual(today).toArray()
   const sortedStates = states.sort((a, b) => a.nextReviewDate.localeCompare(b.nextReviewDate))
   const cards = await db.memoryCards.bulkGet(sortedStates.map((state) => state.cardId))
 
   return sortedStates.flatMap((state, index) => {
     const card = cards[index]
-    return card && card.archived !== true ? [{ card, state }] : []
+    if (!card || card.archived === true) return []
+    if (subjectId && card.subjectId !== subjectId) return []
+    return [{ card, state }]
   })
 }
 
@@ -131,4 +133,21 @@ export async function listRecentForgottenCards(limit = 5): Promise<RecentReviewC
   }
 
   return result
+}
+
+export async function listCramReviewItems(
+  subjectId?: string,
+  knowledgeNodeId?: string
+): Promise<DueReviewItem[]> {
+  let cards = await db.memoryCards.toArray()
+  cards = cards.filter((c) => c.archived !== true)
+  if (subjectId) cards = cards.filter((c) => c.subjectId === subjectId)
+  if (knowledgeNodeId) cards = cards.filter((c) => c.knowledgeNodeId === knowledgeNodeId)
+
+  const states = await db.reviewStates.bulkGet(cards.map((c) => c.id))
+  return cards.flatMap((card, i) => {
+    const state = states[i]
+    if (!state) return []
+    return [{ card, state }]
+  })
 }

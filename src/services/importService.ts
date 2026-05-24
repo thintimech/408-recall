@@ -60,14 +60,15 @@ export async function readBackupFile(file: File): Promise<ExportDataV1> {
 export async function overwriteImport(data: ExportDataV1): Promise<void> {
   await db.transaction(
     'rw',
-    [db.knowledgeNodes, db.memoryCards, db.reviewStates, db.reviewRecords, db.appMeta],
+    [db.knowledgeNodes, db.memoryCards, db.reviewStates, db.reviewRecords, db.appMeta, db.mistakeNotes],
     async () => {
       await Promise.all([
         db.knowledgeNodes.clear(),
         db.memoryCards.clear(),
         db.reviewStates.clear(),
         db.reviewRecords.clear(),
-        db.appMeta.clear()
+        db.appMeta.clear(),
+        db.mistakeNotes.clear()
       ])
 
       await Promise.all([
@@ -75,7 +76,8 @@ export async function overwriteImport(data: ExportDataV1): Promise<void> {
         db.memoryCards.bulkPut(data.data.memoryCards),
         db.reviewStates.bulkPut(data.data.reviewStates),
         db.reviewRecords.bulkPut(data.data.reviewRecords),
-        db.appMeta.bulkPut(data.data.appMeta)
+        db.appMeta.bulkPut(data.data.appMeta),
+        data.data.mistakeNotes?.length ? db.mistakeNotes.bulkPut(data.data.mistakeNotes) : Promise.resolve()
       ])
     }
   )
@@ -84,14 +86,15 @@ export async function overwriteImport(data: ExportDataV1): Promise<void> {
 export async function clearAllData(): Promise<void> {
   await db.transaction(
     'rw',
-    [db.knowledgeNodes, db.memoryCards, db.reviewStates, db.reviewRecords, db.appMeta],
+    [db.knowledgeNodes, db.memoryCards, db.reviewStates, db.reviewRecords, db.appMeta, db.mistakeNotes],
     async () => {
       await Promise.all([
         db.knowledgeNodes.clear(),
         db.memoryCards.clear(),
         db.reviewStates.clear(),
         db.reviewRecords.clear(),
-        db.appMeta.clear()
+        db.appMeta.clear(),
+        db.mistakeNotes.clear()
       ])
     }
   )

@@ -15,7 +15,8 @@ export async function buildExportData(exportedAt = nowIso()): Promise<ExportData
       memoryCards: await db.memoryCards.toArray(),
       reviewStates: await db.reviewStates.toArray(),
       reviewRecords: await db.reviewRecords.toArray(),
-      appMeta: await db.appMeta.toArray()
+      appMeta: await db.appMeta.toArray(),
+      mistakeNotes: await db.mistakeNotes.toArray()
     }
   }
 }
