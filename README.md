@@ -40,7 +40,16 @@
 - AI 上下文对话：复习时可就当前卡片内容多轮追问
 - API Key 仅存储在本地 IndexedDB，不离开浏览器
 
-### 效率工具
+### 云同步
+
+- 基于 Supabase（PostgreSQL + Auth）实现跨设备数据同步
+- 本地优先：IndexedDB 仍是主存储，离线完全可用
+- 增量同步：只推送自上次同步后有变更的数据
+- Last-write-wins 冲突策略，以 `updatedAt` 时间戳判断
+- 复习记录追加型同步，天然无冲突
+- 账号注册/登录/退出，API Key 不参与同步
+
+
 
 - 全局快捷添加卡片（N 键或顶栏按钮，弹出精简表单）
 - 批量 Markdown 导入（`## Q:` / `## A:` 格式）
@@ -71,6 +80,7 @@
 - Vue 3 + TypeScript + Vite
 - Pinia 状态管理 + Vue Router
 - Dexie（IndexedDB）本地持久化
+- Supabase（PostgreSQL + Auth）云同步
 - markdown-it + KaTeX 渲染
 - vite-plugin-pwa
 

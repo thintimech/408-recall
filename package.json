@@ -1,6 +1,6 @@
 {
   "name": "408-recall",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@mdit/plugin-katex": "^0.25.2",
+    "@supabase/supabase-js": "^2.49.4",
     "dexie": "^4.0.11",
     "katex": "^0.17.0",
     "markdown-it": "^14.1.1",

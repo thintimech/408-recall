@@ -9,6 +9,8 @@ import { db } from '@/db'
 import type { CardType, CardWithReviewState, ID, VerifiedStatus } from '@/types/domain'
 import { nowIso } from '@/services/dateService'
 
+type ViewMode = 'grid' | 'grouped'
+
 const router = useRouter()
 const route = useRoute()
 const cardStore = useCardStore()
@@ -17,6 +19,7 @@ const knowledgeStore = useKnowledgeStore()
 const batchMode = ref(false)
 const selectedIds = ref<Set<ID>>(new Set())
 const batchMessage = ref('')
+const viewMode = ref<ViewMode>((localStorage.getItem('408-recall-card-view') as ViewMode) || 'grid')
 
 const cardTypes: Array<{ value: CardType; label: string }> = [
   { value: 'CONCEPT', label: '概念卡' },
@@ -45,6 +48,26 @@ const filteredNodes = computed(() =>
     (node) => node.level > 0 && (!filters.subjectId || node.subjectId === filters.subjectId)
   )
 )
+
+const groupedCards = computed(() => {
+  const groups: Array<{ nodeId: ID; title: string; cards: CardWithReviewState[] }> = []
+  const map = new Map<ID, CardWithReviewState[]>()
+  for (const item of cardStore.cards) {
+    const nodeId = item.card.knowledgeNodeId
+    if (!map.has(nodeId)) map.set(nodeId, [])
+    map.get(nodeId)!.push(item)
+  }
+  for (const [nodeId, cards] of map) {
+    const node = knowledgeStore.nodes.find((n) => n.id === nodeId)
+    groups.push({ nodeId, title: node?.title || '未知知识点', cards })
+  }
+  return groups
+})
+
+function setViewMode(mode: ViewMode) {
+  viewMode.value = mode
+  localStorage.setItem('408-recall-card-view', mode)
+}
 
 async function loadCards() {
   await cardStore.load({
@@ -184,6 +207,10 @@ async function batchMoveNode(nodeId: ID) {
         <p class="page-subtitle">围绕知识点维护可主动回忆的材料。</p>
       </div>
       <div class="actions">
+        <div class="view-toggle">
+          <button class="ghost" :class="{ active: viewMode === 'grid' }" type="button" @click="setViewMode('grid')">网格</button>
+          <button class="ghost" :class="{ active: viewMode === 'grouped' }" type="button" @click="setViewMode('grouped')">分组</button>
+        </div>
         <button class="secondary" type="button" @click="toggleBatch">
           {{ batchMode ? '退出批量' : '批量操作' }}
         </button>
@@ -275,6 +302,7 @@ async function batchMoveNode(nodeId: ID) {
     </section>
 
     <CardList
+      v-if="viewMode === 'grid'"
       :cards="cardStore.cards"
       :nodes="knowledgeStore.nodes"
       :batch-mode="batchMode"
@@ -285,5 +313,76 @@ async function batchMoveNode(nodeId: ID) {
       @delete="remove"
       @toggle-select="toggleSelect"
     />
+
+    <div v-else class="grouped-view">
+      <details v-for="group in groupedCards" :key="group.nodeId" class="group-section" open>
+        <summary class="group-header">
+          <strong>{{ group.title }}</strong>
+          <span class="badge">{{ group.cards.length }}</span>
+        </summary>
+        <CardList
+          :cards="group.cards"
+          :nodes="knowledgeStore.nodes"
+          :batch-mode="batchMode"
+          :selected-ids="selectedIds"
+          @edit="(item) => router.push(`/cards/${item.card.id}/edit`)"
+          @duplicate="duplicate"
+          @archive="archive"
+          @delete="remove"
+          @toggle-select="toggleSelect"
+        />
+      </details>
+    </div>
   </section>
 </template>
+
+<style scoped>
+.view-toggle {
+  display: flex;
+  gap: 0.25rem;
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-sm);
+  padding: 0.15rem;
+}
+
+.view-toggle button {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+}
+
+.view-toggle button.active {
+  background: var(--primary-muted);
+  color: var(--primary);
+}
+
+.grouped-view {
+  display: grid;
+  gap: 1rem;
+}
+
+.group-section {
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  background: var(--surface-container-low);
+}
+
+.group-header {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.group-section[open] > .group-header {
+  margin-bottom: 0.75rem;
+}
+
+.group-section:not([open]) > .group-header {
+  margin-bottom: 0;
+}
+</style>

@@ -33,6 +33,15 @@ export class RecallDatabase extends Dexie {
       mistake_notes: 'id, knowledgeNodeId, createdAt'
     })
 
+    // v3: add syncedAt index for incremental sync
+    this.version(3).stores({
+      knowledge_nodes: 'id, subjectId, parentId, level, sortOrder, title, syncedAt',
+      memory_cards: 'id, knowledgeNodeId, subjectId, type, verifiedStatus, createdAt, updatedAt, syncedAt, *tags',
+      review_states: 'cardId, nextReviewDate, lastReviewDate, reviewCount, lapseCount, syncedAt',
+      review_records: 'id, cardId, reviewDate, result, reviewedAt, syncedAt',
+      mistake_notes: 'id, knowledgeNodeId, createdAt, syncedAt'
+    })
+
     this.knowledgeNodes = this.table('knowledge_nodes')
     this.memoryCards = this.table('memory_cards')
     this.reviewStates = this.table('review_states')

@@ -12,6 +12,10 @@ import {
 import { getStudyGoals, saveStudyGoals, type StudyGoals } from '@/services/studyGoalsService'
 import { chatCompletion, getLlmConfig, saveLlmConfig, type LlmConfig, type LlmProvider } from '@/services/llmService'
 import { getStoredTheme, setStoredTheme, type ThemeMode } from '@/services/themeService'
+import {
+  signIn, signUp, signOut, getSession, fullSync, getLastSyncTime,
+  type SyncResult
+} from '@/services/syncService'
 
 const router = useRouter()
 const message = ref('')
@@ -47,6 +51,70 @@ const llm = reactive<LlmConfig>({
 
 const activeProviderObj = ref<LlmProvider>(llm.providers[0])
 const currentTheme = ref<ThemeMode>(getStoredTheme())
+
+// ── Cloud Sync ────────────────────────────────────────────────────────────────
+const syncEmail = ref('')
+const syncPassword = ref('')
+const syncUserEmail = ref<string | null>(null)
+const syncMessage = ref('')
+const syncError = ref('')
+const syncing = ref(false)
+const lastSync = ref<string | null>(getLastSyncTime())
+
+onMounted(async () => {
+  void loadStats()
+  void loadGoals()
+  void loadLlmConfig()
+  const session = await getSession()
+  syncUserEmail.value = session?.user.email ?? null
+})
+
+async function handleSignIn() {
+  syncError.value = ''
+  syncMessage.value = ''
+  try {
+    await signIn(syncEmail.value, syncPassword.value)
+    const session = await getSession()
+    syncUserEmail.value = session?.user.email ?? null
+    syncEmail.value = ''
+    syncPassword.value = ''
+    syncMessage.value = '登录成功。'
+  } catch (e) {
+    syncError.value = e instanceof Error ? e.message : '登录失败。'
+  }
+}
+
+async function handleSignUp() {
+  syncError.value = ''
+  syncMessage.value = ''
+  try {
+    await signUp(syncEmail.value, syncPassword.value)
+    syncMessage.value = '注册成功，请检查邮箱确认链接后再登录。'
+  } catch (e) {
+    syncError.value = e instanceof Error ? e.message : '注册失败。'
+  }
+}
+
+async function handleSignOut() {
+  await signOut()
+  syncUserEmail.value = null
+  syncMessage.value = '已退出登录。'
+}
+
+async function handleSync() {
+  syncing.value = true
+  syncError.value = ''
+  syncMessage.value = ''
+  try {
+    const result: SyncResult = await fullSync()
+    lastSync.value = getLastSyncTime()
+    syncMessage.value = `同步完成：上传 ${result.pushed} 条，下载 ${result.pulled} 条。`
+  } catch (e) {
+    syncError.value = e instanceof Error ? e.message : '同步失败。'
+  } finally {
+    syncing.value = false
+  }
+}
 
 function changeTheme(mode: ThemeMode) {
   currentTheme.value = mode
@@ -84,12 +152,6 @@ function switchProvider(name: string) {
     llm.model = activeProviderObj.value.models[0]
   }
 }
-
-onMounted(() => {
-  void loadStats()
-  void loadGoals()
-  void loadLlmConfig()
-})
 
 onBeforeUnmount(() => {
   const idx = llm.providers.findIndex((p) => p.name === llm.activeProvider)
@@ -285,6 +347,41 @@ async function clearData() {
       </div>
       <div v-if="llmMessage || llmError" class="toast-inline" :class="{ 'toast-error': !!llmError }">
         {{ llmError || llmMessage }}
+      </div>
+    </section>
+
+    <section class="panel form" style="margin-top: 1rem">
+      <h2>云同步</h2>
+      <p class="muted">登录后可将数据同步到云端，实现多设备共享。</p>
+
+      <div v-if="syncUserEmail">
+        <p>已登录：<strong>{{ syncUserEmail }}</strong></p>
+        <p v-if="lastSync" class="muted">上次同步：{{ lastSync }}</p>
+        <div class="actions" style="margin-top: 0.8rem">
+          <button type="button" :disabled="syncing" @click="handleSync">
+            {{ syncing ? '同步中…' : '立即同步' }}
+          </button>
+          <button class="secondary" type="button" @click="handleSignOut">退出登录</button>
+        </div>
+      </div>
+
+      <div v-else class="grid three">
+        <label>
+          邮箱
+          <input v-model="syncEmail" type="email" placeholder="your@email.com" autocomplete="email" />
+        </label>
+        <label>
+          密码
+          <input v-model="syncPassword" type="password" placeholder="密码" autocomplete="current-password" />
+        </label>
+        <div style="display: flex; align-items: flex-end; gap: 0.5rem; padding-bottom: 0.1rem">
+          <button type="button" @click="handleSignIn">登录</button>
+          <button class="secondary" type="button" @click="handleSignUp">注册</button>
+        </div>
+      </div>
+
+      <div v-if="syncMessage || syncError" class="toast-inline" :class="{ 'toast-error': !!syncError }" style="margin-top: 0.75rem">
+        {{ syncError || syncMessage }}
       </div>
     </section>
 
