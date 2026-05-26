@@ -85,7 +85,9 @@
 
 ## 配套移动端
 
-本项目有配套的 React Native（Expo）移动端应用，共享同一个 Supabase 后端，数据双向同步。移动端代码位于同级目录 `recall-app/`。
+本项目有配套的 React Native（Expo）移动端应用，共享同一个 Supabase 后端，数据双向同步。
+
+- 移动端仓库：https://github.com/thintimech/408-recall-app
 
 ## 技术栈
 
