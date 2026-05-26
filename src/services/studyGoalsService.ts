@@ -1,5 +1,5 @@
 import { getMetaValue, setMetaValue } from '@/db/repositories/metaRepository'
-import { todayLocalDate } from './dateService'
+import { todayLocalDate, addDays } from './dateService'
 
 export interface StudyGoals {
   examDate: string | null
@@ -45,9 +45,7 @@ export async function recordStudyDay(): Promise<StreakData> {
     return streak
   }
 
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().slice(0, 10)
+  const yesterdayStr = addDays(today, -1)
 
   let newStreak: number
   if (streak.lastStudyDate === yesterdayStr) {

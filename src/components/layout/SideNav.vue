@@ -34,6 +34,10 @@
         <span class="material-symbols-outlined">error_outline</span>
         Mistakes
       </RouterLink>
+      <RouterLink class="nav-link" to="/insights">
+        <span class="material-symbols-outlined">lightbulb</span>
+        Insights
+      </RouterLink>
       <RouterLink class="nav-link" to="/stats">
         <span class="material-symbols-outlined">query_stats</span>
         Stats

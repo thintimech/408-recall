@@ -26,7 +26,7 @@ export function scheduleNextReview(
 ): ReviewState {
   const currentInterval = state.intervalDays
   let nextInterval: number
-  let nextEaseFactor = state.easeFactor || 2.5
+  let nextEaseFactor = state.easeFactor ?? 2.5
   let nextLapseCount = state.lapseCount
 
   switch (result) {

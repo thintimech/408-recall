@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import type {
   AppMeta,
   ID,
+  Insight,
   KnowledgeNode,
   MemoryCard,
   MistakeNote,
@@ -15,6 +16,7 @@ export class RecallDatabase extends Dexie {
   reviewStates!: Table<ReviewState, ID>
   reviewRecords!: Table<ReviewRecord, ID>
   mistakeNotes!: Table<MistakeNote, ID>
+  insights!: Table<Insight, ID>
   appMeta!: Table<AppMeta, string>
 
   constructor() {
@@ -42,11 +44,17 @@ export class RecallDatabase extends Dexie {
       mistake_notes: 'id, knowledgeNodeId, createdAt, syncedAt'
     })
 
+    // v4: add insights table
+    this.version(4).stores({
+      insights: 'id, knowledgeNodeId, createdAt, updatedAt, syncedAt'
+    })
+
     this.knowledgeNodes = this.table('knowledge_nodes')
     this.memoryCards = this.table('memory_cards')
     this.reviewStates = this.table('review_states')
     this.reviewRecords = this.table('review_records')
     this.mistakeNotes = this.table('mistake_notes')
+    this.insights = this.table('insights')
     this.appMeta = this.table('app_meta')
   }
 }

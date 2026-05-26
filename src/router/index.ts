@@ -70,6 +70,12 @@ export const router = createRouter({
       meta: { title: '错点记录' }
     },
     {
+      path: '/insights',
+      name: 'Insights',
+      component: () => import('@/pages/InsightsPage.vue'),
+      meta: { title: '我的理解' }
+    },
+    {
       path: '/ai',
       name: 'AiCard',
       component: () => import('@/pages/AiCardPage.vue'),

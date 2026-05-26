@@ -68,18 +68,29 @@ export async function chatCompletion(
   if (!provider.baseUrl) throw new Error('请先在设置中配置提供商的 Base URL。')
 
   const url = `${provider.baseUrl.replace(/\/$/, '')}/v1/chat/completions`
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${provider.apiKey}`
-    },
-    body: JSON.stringify({
-      model: cfg.model,
-      messages,
-      temperature: 0.7
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${provider.apiKey}`
+      },
+      body: JSON.stringify({
+        model: cfg.model,
+        messages,
+        temperature: 0.7
+      }),
+      signal: controller.signal
     })
-  })
+  } catch (e) {
+    clearTimeout(timeout)
+    if ((e as Error).name === 'AbortError') throw new Error('请求超时（30s），请检查网络或 API 地址。')
+    throw e
+  }
+  clearTimeout(timeout)
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')

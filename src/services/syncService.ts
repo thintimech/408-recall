@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { db } from '@/db'
 import { nowIso } from './dateService'
-import type { KnowledgeNode, MemoryCard, ReviewState, ReviewRecord, MistakeNote } from '@/types/domain'
+import type { KnowledgeNode, MemoryCard, ReviewState, ReviewRecord, MistakeNote, Insight } from '@/types/domain'
 
 export interface SyncResult {
   pushed: number
@@ -129,7 +129,7 @@ async function pushTable<T extends Record<string, unknown>>(
 
 async function pullTable<T>(
   tableName: string,
-  localTable: { put: (item: T) => Promise<unknown> },
+  localTable: { put: (item: T) => Promise<unknown>; get: (key: unknown) => Promise<T | undefined> },
   userId: string,
   lastSync: string | null,
   pkField: string = 'id',
@@ -141,13 +141,14 @@ async function pullTable<T>(
     .eq('user_id', userId)
 
   if (lastSync) {
-    query = query.gt(timestampColumn, lastSync)
+    query = query.gte(timestampColumn, lastSync)
   }
 
   const { data, error } = await query
   if (error) throw new Error(`pull ${tableName}: ${error.message}`)
   if (!data?.length) return 0
 
+  let count = 0
   for (const row of data) {
     const camel = toCamel(row as Record<string, unknown>)
     delete camel.userId
@@ -155,9 +156,17 @@ async function pullTable<T>(
     if (pkField === 'cardId') {
       camel.cardId = camel.cardId ?? (row as Record<string, unknown>).card_id
     }
+    const pk = pkField === 'cardId' ? camel.cardId : camel.id
+    const local = await localTable.get(pk as unknown)
+    if (local && (local as Record<string, unknown>).updatedAt && camel.updatedAt) {
+      if ((local as Record<string, unknown>).updatedAt as string > (camel.updatedAt as string)) {
+        continue
+      }
+    }
     await localTable.put(camel as T)
+    count++
   }
-  return data.length
+  return count
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -172,6 +181,7 @@ export async function pushChanges(): Promise<SyncResult> {
   pushed += await pushTable('review_states', db.reviewStates as never, userId, lastSync, { conflictColumn: 'card_id' })
   pushed += await pushTable('review_records', db.reviewRecords as never, userId, lastSync, { appendOnly: true })
   pushed += await pushTable('mistake_notes', db.mistakeNotes as never, userId, lastSync)
+  pushed += await pushTable('insights', db.insights as never, userId, lastSync)
 
   return { pushed, pulled: 0, conflicts: 0 }
 }
@@ -186,6 +196,7 @@ export async function pullChanges(): Promise<SyncResult> {
   pulled += await pullTable<ReviewState>('review_states', db.reviewStates, userId, lastSync, 'cardId')
   pulled += await pullTable<ReviewRecord>('review_records', db.reviewRecords, userId, lastSync, 'id', 'reviewed_at')
   pulled += await pullTable<MistakeNote>('mistake_notes', db.mistakeNotes, userId, lastSync)
+  pulled += await pullTable<Insight>('insights', db.insights, userId, lastSync)
 
   return { pushed: 0, pulled, conflicts: 0 }
 }

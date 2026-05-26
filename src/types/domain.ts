@@ -104,3 +104,13 @@ export interface MistakeNote {
   createdAt: ISODateTimeString
   updatedAt: ISODateTimeString
 }
+
+export interface Insight {
+  id: ID
+  knowledgeNodeId: ID | null
+  title: string
+  content: string
+  relatedCardIds: ID[]
+  createdAt: ISODateTimeString
+  updatedAt: ISODateTimeString
+}

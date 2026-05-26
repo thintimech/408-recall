@@ -140,6 +140,7 @@ function askAi() {
 
 function handleKeydown(event: KeyboardEvent) {
   if (shouldIgnoreShortcut(event)) return
+  if (showProbe.value) return
 
   const key = event.key.toLowerCase()
   if (event.code === 'Space') {

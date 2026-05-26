@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import CardList from '@/components/cards/CardList.vue'
 import { useCardStore } from '@/stores/cardStore'
@@ -87,6 +87,10 @@ watch(filters, () => {
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => void loadCards(), 300)
 }, { deep: true })
+
+onBeforeUnmount(() => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+})
 
 onMounted(async () => {
   const q = route.query.q
